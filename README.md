@@ -22,44 +22,60 @@ We design and implement FIRM-AFL, an enhancement of AFL for fuzzing IoT firmware
 
 <div align=center>Figure 2. Overview of FIRM-AFL</div>
 
-### TriforceAFL_new
 
-		A tool for simulation, dynamic analysis and fuzzing of IoT firmware.
-		Combination of TriforceAFL, firmadyne and DECAF.
+## Setup
 
-#### DECAF: upgraded to the newest qemu version 2.10.1
-		It is included in qemu_mode/qemu dir. 
-		In our case, run ./configure --target-list=mipsel-softmmu
-		Run make
+Our system has two parts: system mode and user mode. We compile them separately for now.
 
-#### Firmadyne: we use its custom kernel and libnvram to emulate IoT firmware. 
-		cd firmadyne 
-		See README in firmadyne and do as it says.(NOTICE: need to set FIRMWARE_DIR in firmadyne.config
-		Here, we test DIR-815_FIRMWARE_1.01.ZIP, a router firmware image based on mipsel cpu arch.
-		run "../qemu_mode/qemu/qemu-img convert -f raw -O qcow2 ./scratch/2/image.raw ./scratch/2/image.qcow2"		
-		Finally, we replace the run.sh in scratch/(num)/ with our modified one (In firmadyne_dev dir).
-		
+### User mode 
+	cd user_mode/
+	./configure --target-list=mipsel-linux-user,mips-linux-user,arm-linux-user --static --disable-werror
+	make
 
+### System mode
+	cd qemu_mode/DECAF_qemu_2.10/
+	./configure --target-list=mipsel-softmmu,mips-softmmu,arm-softmmu --disable-werror
+	make
 
-#### TriforceAFL: AFL fuzzing with full-system emulation
-		Run make
-  
+## Usage
 
+1.  Setup the firmadyne including importing its datasheet https://cmu.app.boxcn.net/s/hnpvf1n72uccnhyfe307rc2nb9rfxmjp into database.
 
-#### Usage:
-		cd firmadyne
-		Run ./scratch/(num)/run.sh 
-		In another terminal, run 'telnet 127.0.0.1 4444', into qemu monitor console.
-		FirmFuzzer plugin:
-			load_plugin ../qemu_mode/qemu/plugins/callbacktests/callbacktests.so
-			do_callbacktests httpd
-			do_callbacktests hedwig.cgi
-			When firmware system initialization is completed and poll system call is executed, open a Browser, type a request "192.168.0.1/hedwig.cgi" in url, the fuzz process will be started.
-		MalScalpel plugin:
-			load_plugin ../qemu_mode/qemu/plugins/unpacker/unpacker.so
-			trace_by_name mirai.mpsl
-			Then, telnet into system "telnet 192.168.0.1" with username "Alphanetworks" and password "wrgnd08_dlob_dir815"
-			Run "/FILE_LOAD/mirai.mpsl", the plugin works.
+2.  Replace the scripts/makeImage.sh with modified one in firmadyne_modify directory.
+
+3.  follow the guidance from firmadyne to generate the system running scripts. 
+>Take DIR-815 router firmware as a example,
+
+	./sources/extractor/extractor.py -b dlink -sql 127.0.0.1 -np -nk "../firmware/DIR-815_FIRMWARE_1.01.ZIP" images
+	./scripts/getArch.sh ./images/9050.tar.gz
+	./scripts/makeImage.sh 9050
+	./scripts/inferNetwork.sh 9050
+	python FirmAFL_setup.py 9050 mipsel
+
+4. modify the run.sh manually as following,  in order to emulate firmware with our modified QEMU and kernel, and running on the RAM file.
+>For mipsel,
+
+	ARCH=mipsel
+	QEMU="./qemu-system-${ARCH}"
+	KERNEL="./vmlinux.${ARCH}_3.2.1" 
+	IMAGE="./image.raw"
+	MEM_FILE="./mem_file"
+	${QEMU} -m 256 -mem-prealloc -mem-path ${MEM_FILE} -M ${QEMU_MACHINE} -kernel ${KERNEL} \ 
+>For mipseb,
+
+	ARCH=mips
+	QEMU="./qemu-system-${ARCH}"
+	KERNEL="./vmlinux.${ARCH}_3.2.1" 
+	IMAGE="./image.raw"
+	MEM_FILE="./mem_file"
+	${QEMU} -m 256 -mem-prealloc -mem-path ${MEM_FILE} -M ${QEMU_MACHINE} -kernel ${KERNEL} \
+
+5. run the fuzzing process
+>after running the start.py script, FirmAFL will start the firmware emulation, and after the system initialization(120s), the fuzzing process will start.
+
+	cd image_9050
+	python start.py 9050
+
 
 
 ## Related Work
