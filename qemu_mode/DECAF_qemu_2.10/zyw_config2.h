@@ -5,7 +5,6 @@ int program_start = 0;
 int first_or_new_pgd = 1; //0 first 1 new; // 0 tplink httpd
 //#define multiple_process //Trendnet jjhttpd Netgear lighttpd
 
-
 int fork_times = 0;
 double tlb_time_interval = 0.0; //tlb
 double tlb_time_interval_total = 0.0; //tlb
@@ -92,11 +91,9 @@ void truncate_sysinfo()
 
 //NEW_MAPPING
 int into_normal_execution = 0;
-int handle_addr;
 int normal_execution_tb = 0;
 int tlb_match = 0;
-int write_vaddr = 0;
-int write_paddr = 0;
+
 
 int print_debug = 0;
 int print_pc_times = 0;
@@ -104,7 +101,7 @@ int print_loop_times = 1;
 int print_loop_count = 0;
 
 
-int httpd_pgd;
+int target_pgd;
 int afl_user_fork = 0;
 
 
@@ -112,5 +109,6 @@ int slow_print = 0;
 int finish_recv = 0;
 int global_into_syscall;
 int into_syscall = 0;
-int last_syscall = 0;
+int before_syscall_stack = 0;
 int curr_state_pc = 0;
+int last_syscall = 0;

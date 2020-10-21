@@ -429,6 +429,120 @@ void reload_tlb(CPUMIPSState * env)
 }
 #endif
 
+/*
+target_ulong record_read_tlb[256];
+target_ulong record_write_tlb[256];
+int read_index = 0;
+int write_index = 0;
+
+//qemu_handle_addr_thread_fn may calls it.
+
+void record_tlb_ind(int ind, int flag) // not index
+{
+	if (flag == 0)
+	{
+		record_read_tlb[read_index++] = ind;
+
+	}
+	else if(flag == 1)
+	{
+		record_write_tlb[write_index++] = ind;
+	}
+	else
+	{
+		record_read_tlb[read_index++] = ind;
+	}
+}
+
+void recover_tlb(CPUArchState *env)
+{
+	for(int i = 0; i < read_index ; i++)
+	{
+		int ind = record_read_tlb[i];
+		env->tlb_table[2][ind].addr_read = 0xffffffff;
+	}
+	for(int j = 0; j < write_index ; j++)
+	{
+		int ind = record_write_tlb[j];
+		env->tlb_table[2][ind].addr_write = 0xffffffff;
+	}
+	read_index = 0;
+	write_index = 0;
+}
+
+*/
+typedef struct 
+{
+	int ind;
+	target_ulong addr_code;
+    target_ulong addr_read;
+    target_ulong addr_write;
+    uintptr_t addend;
+    struct TLB_BACKUP * next;
+} TLB_BACKUP;
+
+TLB_BACKUP *tlb_backup_head =NULL;
+
+void record_tlb(target_ulong ind, target_ulong addr_code, target_ulong addr_read, target_ulong addr_write, uintptr_t addend)
+{
+	//printf("&&&&&&&&&&&&&&&&&&& record_tlb: %x\n", ind);
+	TLB_BACKUP * tlb_backup = (TLB_BACKUP *)malloc(sizeof(TLB_BACKUP));
+	tlb_backup -> ind =ind;
+	tlb_backup -> addr_code =addr_code;
+	tlb_backup -> addr_read =addr_read;
+	tlb_backup -> addr_write =addr_write;
+	tlb_backup -> addend =addend;
+	if(tlb_backup_head == NULL)
+	{
+		tlb_backup_head = tlb_backup;
+		tlb_backup -> next =NULL;
+	}
+	else
+	{
+		TLB_BACKUP * tmp = tlb_backup_head;
+		tlb_backup_head = tlb_backup;
+		tlb_backup -> next = tmp;
+	}
+
+}
+
+bool find_tlb_backup(target_ulong ind)
+{
+	//printf("&&&&&&&&&&&&&&&&&&& find tlb: %x\n", ind);
+	for(TLB_BACKUP * curr = tlb_backup_head; curr!=NULL; curr = curr->next)
+	{
+		target_ulong tmp_ind = curr->ind;
+		if(tmp_ind == ind)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+
+void recover_tlb(CPUArchState *env)
+{
+	for(TLB_BACKUP * curr = tlb_backup_head; curr!=NULL; curr = curr->next)
+	{
+		target_ulong tmp_ind = curr->ind;
+#ifdef TARGET_MIPS
+		env->tlb_table[2][tmp_ind].addr_code =  curr->addr_code;
+		env->tlb_table[2][tmp_ind].addr_read =  curr->addr_read;
+		env->tlb_table[2][tmp_ind].addr_write =  curr->addr_write;
+		env->tlb_table[2][tmp_ind].addend =  curr->addend;
+		//printf("&&&&&&&&&&&&&&&&&&& recover tlb:%x,%x,%x,%x,%x\n", tmp_ind, curr->addr_code, curr->addr_read, curr->addr_write, curr->addend);
+#elif defined(TARGET_ARM)
+		env->tlb_table[0][tmp_ind].addr_code =  curr->addr_code;
+		env->tlb_table[0][tmp_ind].addr_read =  curr->addr_read;
+		env->tlb_table[0][tmp_ind].addr_write =  curr->addr_write;
+		env->tlb_table[0][tmp_ind].addend =  curr->addend;
+#endif
+	}
+}
+
+
+
 CPUArchState backup_cpu;
 CPUState backup_cpu0;
 CPUTLBEntry backup_tlb_table[4][256];

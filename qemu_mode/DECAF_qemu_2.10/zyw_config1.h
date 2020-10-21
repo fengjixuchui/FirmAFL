@@ -1,4 +1,4 @@
-#define FULL
+//#define FULL
 
 #ifdef FULL
 
@@ -9,12 +9,12 @@
 #define AUTO_FIND_FORK_PC //pc need change
 #define MAX_LEN 3000
 //#define DEBUG
+//#define SHOW_SYSCALL_TRACE
 #else 
 
 
 #define DECAF
 #define MEM_MAPPING
-#define PRE_MAPPING
 #define NEW_MAPPING
 //if use new_mapping, cannot user pre_mapping
 

@@ -2452,6 +2452,8 @@ void mips_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
     do_raise_exception_err(env, excp, error_code, retaddr);
 }
 
+extern int afl_user_fork;
+extern int handle_addr;
 void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
               int mmu_idx, uintptr_t retaddr)
 {
@@ -2465,17 +2467,19 @@ void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
         do_raise_exception_err(env, cs->exception_index,
                                env->error_code, retaddr);
     }
-/*
-#ifdef NEW_MAPPING
     else
     {
-      if(tlb_match == 1)
-      {
-        cpu_loop_exit_restore(cs, retaddr);
-      }
+        if(afl_user_fork && addr == handle_addr)
+        {
+            printf("ret addr:%x, addr:%x, access_type:%d, mmu_idx:%d\n", retaddr, addr, access_type, mmu_idx);
+            if (retaddr) {
+                /* now we have a real cpu fault */
+                cpu_restore_state(cs, retaddr);
+            }
+            siglongjmp(cs->jmp_env, 1);
+        }
     }
-#endif
-*/
+
 }
 
 void mips_cpu_unassigned_access(CPUState *cs, hwaddr addr,
